@@ -1,3 +1,5 @@
+package task1;
+
 public class BallThread extends Thread {
     private Ball b;
 
