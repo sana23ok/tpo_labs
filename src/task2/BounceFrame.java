@@ -13,7 +13,7 @@ public class BounceFrame extends JFrame {
 
     public BounceFrame() {
         this.setSize(WIDTH, HEIGHT);
-        this.setTitle("task2.Bounce program");
+        this.setTitle("task2. Billiard Simulation.");
         this.canvas = new BallCanvas();
         scoreLabel = new JLabel("Score: 0");
 
