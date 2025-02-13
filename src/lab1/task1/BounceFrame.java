@@ -1,4 +1,4 @@
-package task2;
+package lab1.task1;
 
 import javax.swing.*;
 import java.awt.*;
@@ -7,16 +7,12 @@ import java.awt.event.ActionListener;
 
 public class BounceFrame extends JFrame {
     private BallCanvas canvas;
-    private JLabel scoreLabel;
     public static final int WIDTH = 450;
     public static final int HEIGHT = 350;
-
     public BounceFrame() {
         this.setSize(WIDTH, HEIGHT);
-        this.setTitle("task2. Billiard Simulation.");
+        this.setTitle("lab1.task1. Bounce program");
         this.canvas = new BallCanvas();
-        scoreLabel = new JLabel("Score: 0");
-
         System.out.println("In Frame Thread name = "
                 + Thread.currentThread().getName());
         Container content = this.getContentPane();
@@ -25,19 +21,32 @@ public class BounceFrame extends JFrame {
         buttonPanel.setBackground(Color.lightGray);
         JButton buttonStart = new JButton("Start");
         JButton buttonStop = new JButton("Stop");
+        buttonStart.addActionListener(new ActionListener() {
 
-        buttonStart.addActionListener(e -> {
-            Ball ball = new Ball(canvas);
-            canvas.add(ball);
-            BallThread thread = new BallThread(ball, canvas, scoreLabel);
-            thread.start();
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                Ball b = new Ball(canvas);
+                canvas.add(b);
+
+                BallThread thread = new BallThread(b);
+                thread.start();
+                System.out.println("Thread name = " +
+                        thread.getName());
+            }
+        });
+        buttonStop.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                System.exit(0);
+            }
         });
 
-        buttonStop.addActionListener(e -> System.exit(0));
 
         buttonPanel.add(buttonStart);
         buttonPanel.add(buttonStop);
-        buttonPanel.add(scoreLabel);
+
         content.add(buttonPanel, BorderLayout.SOUTH);
     }
 }

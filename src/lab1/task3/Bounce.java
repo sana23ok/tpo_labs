@@ -1,4 +1,4 @@
-package task2;
+package lab1.task3;
 
 import javax.swing.*;
 

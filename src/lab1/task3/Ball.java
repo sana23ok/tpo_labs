@@ -1,4 +1,4 @@
-package task3;
+package lab1.task3;
 
 import java.awt.*;
 import java.awt.geom.Ellipse2D;

@@ -1,4 +1,4 @@
-package task3;
+package lab1.task3;
 
 import javax.swing.*;
 import java.awt.*;
@@ -9,7 +9,7 @@ public class BounceFrame extends JFrame {
 
     public BounceFrame() {
         setSize(600, 400);
-        setTitle("task3. Billiard Simulation.");
+        setTitle("lab1.task3. Billiard Simulation.");
         canvas = new BallCanvas();
 
         Container content = getContentPane();

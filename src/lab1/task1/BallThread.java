@@ -1,4 +1,4 @@
-package task1;
+package lab1.task1;
 
 public class BallThread extends Thread {
     private Ball b;
