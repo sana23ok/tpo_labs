@@ -1,13 +1,11 @@
 package lab1.task5;
 
-// CounterLock.java
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class CounterLock {
-    private int count = 0;
-    private final Lock lock = new ReentrantLock();
+public class CounterLock extends Counter {
+    private final ReentrantLock lock = new ReentrantLock();
 
+    @Override
     public void increment() {
         lock.lock();
         try {
@@ -17,6 +15,7 @@ public class CounterLock {
         }
     }
 
+    @Override
     public void decrement() {
         lock.lock();
         try {
@@ -24,10 +23,6 @@ public class CounterLock {
         } finally {
             lock.unlock();
         }
-    }
-
-    public int getCount() {
-        return count;
     }
 }
 

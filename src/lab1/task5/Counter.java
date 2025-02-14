@@ -1,18 +1,14 @@
 package lab1.task5;
 
-public class Counter {
-    private int count = 0;
+public abstract class Counter {
+    protected int count = 0;
 
-    public void increment() {
-        count++;
-    }
+    public abstract void increment();
 
-    public void decrement() {
-        count--;
-    }
+    public abstract void decrement();
 
     public int getCount() {
         return count;
-    }
+    };
 }
 

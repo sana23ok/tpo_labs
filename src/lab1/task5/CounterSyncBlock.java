@@ -1,22 +1,17 @@
 package lab1.task5;
 
-// CounterSyncBlock.java
-public class CounterSyncBlock {
-    private int count = 0;
-
+public class CounterSyncBlock extends Counter {
+    @Override
     public void increment() {
         synchronized (this) {
             count++;
         }
     }
 
+    @Override
     public void decrement() {
         synchronized (this) {
             count--;
         }
-    }
-
-    public int getCount() {
-        return count;
     }
 }
