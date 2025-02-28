@@ -30,7 +30,7 @@ public class Drop {
         // Wait until message has
         // been retrieved.
         while (!empty) {
-            try { 
+            try {
                 wait();
             } catch (InterruptedException e) {}
         }
