@@ -1,31 +1,46 @@
 package lab2.task1;
-
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLong;
 
-class BankAtomic implements Bank {
-    private final AtomicIntegerArray accounts;
-    private long ntransacts = 0;
-    public static final int NTEST = 10000;
+class BankAtomic extends Bank {
+    private final AtomicIntegerArray atomicAccounts;
+    private final AtomicLong ntransacts = new AtomicLong(0);
 
     public BankAtomic(int n, int initialBalance) {
-        accounts = new AtomicIntegerArray(n);
-        for (int i = 0; i < n; i++)
-            accounts.set(i, initialBalance);
+        super(n, initialBalance);
+        atomicAccounts = new AtomicIntegerArray(n);
+        for (int i = 0; i < n; i++) {
+            atomicAccounts.set(i, initialBalance);
+        }
     }
 
+    @Override
     public void transfer(int from, int to, int amount) {
-        accounts.addAndGet(from, -amount);
-        accounts.addAndGet(to, amount);
-        ntransacts++;
-        if (ntransacts % NTEST == 0) test();
+        while (true) {
+            // Отримуємо поточний баланс для відправника
+            int fromBalance = atomicAccounts.get(from);
+            if (fromBalance < amount) return; // Якщо недостатньо коштів, зупиняємо
+
+            // Пробуємо зробити операцію за допомогою атомарних операцій
+            if (atomicAccounts.compareAndSet(from, fromBalance, fromBalance - amount)) {
+                // Якщо операція успішна, додаємо гроші на рахунок отримувача
+                atomicAccounts.addAndGet(to, amount);
+                break; // Трансфер успішно завершений
+            }
+        }
+
+        // Перевірка кожну NTEST транзакцію
+        if (ntransacts.incrementAndGet() % NTEST == 0) {
+            test();
+        }
     }
 
-    private void test() {
+    @Override
+    public void test() {
         int sum = 0;
-        for (int i = 0; i < accounts.length(); i++)
-            sum += accounts.get(i);
-        System.out.println("Transactions: " + ntransacts + " Sum: " + sum);
+        for (int i = 0; i < atomicAccounts.length(); i++) {
+            sum += atomicAccounts.get(i);
+        }
+        System.out.println("Transactions: " + ntransacts.get() + " Sum: " + sum);
     }
-
-    public int size() { return accounts.length(); }
 }
