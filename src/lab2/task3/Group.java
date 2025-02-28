@@ -3,7 +3,7 @@ package lab2.task3;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Group {
+class Group {
     private final int groupId;
     private final List<Student> students;
 
@@ -17,13 +17,6 @@ public class Group {
 
     public List<Student> getStudents() {
         return students;
-    }
-
-    public void printGroupInfo() {
-        System.out.println("Group " + groupId + " grades:");
-        for (Student student : students) {
-            System.out.println(student);
-        }
     }
 
     public int getName() {

@@ -1,6 +1,6 @@
 package lab2.task3;
 
-public class Assistant implements Runnable {
+class Assistant implements Runnable {
     private final GradeBook gradeBook;
     private final String name;
     private final int groupIndex;
@@ -15,13 +15,13 @@ public class Assistant implements Runnable {
 
     public void run() {
         for (int week = 1; week <= weeks; week++) {
-            System.out.println(name + " is grading group" + (groupIndex + 1) + " week " + week);
-            for (int studentIndex = 0; studentIndex < 3; studentIndex++) { // Оцінка кожного студента групи
+            System.out.println(name + " is grading group " + (groupIndex + 1) + " week " + week);
+            for (int studentIndex = 0; studentIndex < 3; studentIndex++) {
                 int grade = 50 + (int) (Math.random() * 51);
-                gradeBook.setAssistantGrade(week, groupIndex, studentIndex, grade);
+                gradeBook.addGrade(week, groupIndex, studentIndex, grade, name);
             }
             try {
-                Thread.sleep(500); // Очікування перед наступним тижнем
+                Thread.sleep(500);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
