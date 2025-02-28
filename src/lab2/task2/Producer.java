@@ -3,29 +3,26 @@ package lab2.task2;
 import java.util.Random;
 
 public class Producer implements Runnable {
-    private final Drop sharedDrop;
-    private final int totalMessages;
+    private final Drop drop;
+    private final int size;
 
-    public Producer(Drop sharedDrop, int totalMessages) {
-        this.sharedDrop = sharedDrop;
-        this.totalMessages = totalMessages;
+    public Producer(Drop drop, int size) {
+        this.drop = drop;
+        this.size = size;
     }
 
     @Override
     public void run() {
-        Random rng = new Random();
-
-        // Generate and pass using Drop
-        for (int i = 1; i <= totalMessages; i++) {
-            String message = String.valueOf(i);
-            sharedDrop.put(message);
+        Random random = new Random();
+        for (int i = 0; i < size; i++) {
+            drop.put(i);
+//            System.out.println("Produced: " + i+1);
             try {
-                Thread.sleep(rng.nextInt(10));
+                Thread.sleep(random.nextInt(10));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
-
-        sharedDrop.put("DONE");
+        drop.put(-1);
     }
 }

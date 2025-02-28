@@ -3,26 +3,27 @@ package lab2.task2;
 import java.util.Random;
 
 public class Consumer implements Runnable {
-    private Drop drop;
-    private int mgsRecivedCount = 0;
+    private final Drop drop;
 
     public Consumer(Drop drop) {
         this.drop = drop;
     }
 
+    @Override
     public void run() {
         Random random = new Random();
-        for (String m = drop.take(); !m.equals("DONE"); m = drop.take()) {
-            System.out.format("MESSAGE RECEIVED: %s%n", m);
-            mgsRecivedCount++;
-
+        while (true) {
+            int value = drop.take();
+            if (value == -1) { // Перевірка на завершення
+                break;
+            }
+            System.out.println("Consumed: " + value+1);
             try {
-                Thread.sleep(random.nextInt(10));
+                Thread.sleep(random.nextInt(10)); // Затримка для симуляції
             } catch (InterruptedException e) {
-//                Thread.currentThread().interrupt();
+                Thread.currentThread().interrupt();
             }
         }
-
-        System.out.println("Total messages received: " + mgsRecivedCount);
+        System.out.println("Consumer finished.");
     }
 }
