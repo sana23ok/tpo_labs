@@ -1,41 +1,48 @@
 package lab3;
 
-class StripedMultiplier {
-    public static Matrix multiplyStriped(Matrix m1, Matrix m2, int numThreads) {
-        Matrix product = new Matrix(m1.getRows(), m2.getCols());
+import java.util.ArrayList;
+import java.util.concurrent.*;
 
-        Thread[] threads = new Thread[numThreads];
+public class StripedMultiplier {
 
-        for (int t = 0; t < numThreads; t++) {
-            final int threadIndex = t;
-
-            threads[t] = new Thread(() -> {
-                // Кожен потік обробляє певні рядки результатної матриці
-                // Потік з індексом t буде обробляти всі рядки, де i = t, t + numThreads, t + 2*numThreads, ...
-                for (int i = threadIndex; i < m1.getRows(); i += numThreads) {
-                    // Проходимо по всіх стовпцях результатної матриці
-                    for (int j = 0; j < m2.getCols(); j++) {
-                        // Обчислюємо добуток для елемента результатної матриці
-                        for (int k = 0; k < m1.getCols(); k++) {
-                            // Сумуємо добутки елементів відповідних рядків з матриці m1 та стовпця з матриці m2
-                            product.getData()[i][j] += m1.getData()[i][k] * m2.getData()[k][j];
-                        }
-                    }
-                }
-            });
-            threads[t].start();
+    public static Matrix multiplyStriped(Matrix matrix1, Matrix matrix2, int numOfThreads) {
+        if (matrix1.getCols() != matrix2.getRows()) {
+            throw new IllegalArgumentException("Matrices cannot be multiplied - invalid dimensions");
         }
 
-        for (Thread thread : threads) {
-            try {
-                // Очікуємо завершення кожного потоку
-                thread.join();
-            } catch (InterruptedException e) {
-                // Якщо потік був перерваний, виводимо помилку
-                e.printStackTrace();
+        Matrix result = new Matrix(matrix1.getRows(), matrix2.getCols());
+        Matrix transMatrix2 = matrix2.transpose();
+
+        ExecutorService executor = Executors.newFixedThreadPool(numOfThreads);
+        ArrayList<Future<Double>> futures = new ArrayList<>();
+
+        for (int i = 0; i < matrix1.getRows(); i++) {
+            for (int j = 0; j < matrix2.getCols(); j++) {
+                double[] row = matrix1.extractRow(i);
+                double[] col = transMatrix2.extractRow(j); // getRow(j) changed to extractRow(j)
+                futures.add(executor.submit(() -> dotProduct(row, col)));
             }
         }
+        executor.shutdown();
 
-        return product;
+        try {
+            for (int i = 0; i < result.getRows(); i++) {
+                for (int j = 0; j < result.getCols(); j++) {
+                    result.getData()[i][j] = futures.get(i * result.getCols() + j).get();
+                }
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+
+        return result;
+    }
+
+    private static Double dotProduct(double[] row, double[] column) {
+        double result = 0;
+        for (int k = 0; k < row.length; k++) {
+            result += row[k] * column[k];
+        }
+        return result;
     }
 }

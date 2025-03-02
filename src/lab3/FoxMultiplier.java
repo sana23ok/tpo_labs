@@ -1,68 +1,94 @@
 package lab3;
 
-class FoxMultiplier {
-    // Алгоритм Фокса для множення матриць
-    public static Result multiplyFox(Matrix m1, Matrix m2, int blockSize, int numThreads) {
-        int resultRows = m1.getRows();
-        int resultCols = m2.getCols();
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
-        Result product = new Result(resultRows, resultCols);
+class FoxMultiplier {
+    public static Result multiplyFox(Matrix m1, Matrix m2, int blockSize, int numThreads) {
+        int n = m1.getRows();
+        Result product = new Result(n, n);
 
         Matrix[][] blocksM1 = Matrix.splitIntoBlocks(m1, blockSize);
         Matrix[][] blocksM2 = Matrix.splitIntoBlocks(m2, blockSize);
-        Matrix[][] blocksProduct = new Matrix[resultRows / blockSize][resultCols / blockSize];
+        Matrix[][] blocksProduct = new Matrix[n / blockSize][n / blockSize];
 
-        // Створення масиву потоків
-        Thread[] threads = new Thread[numThreads];
-
-        for (int stage = 0; stage < resultRows / blockSize; stage++) {
-            final int currentStage = stage;
-
-            // Робимо копії блоків для поточного етапу, щоб уникнути проблеми змінних у лямбда-виразах
-            Matrix[][] currentBlocksM1 = blocksM1;
-            Matrix[][] currentBlocksM2 = blocksM2;
-
-            for (int t = 0; t < numThreads; t++) {
-                final int threadIndex = t;
-
-                threads[t] = new Thread(() -> {
-                    for (int i = threadIndex * blockSize; i < Math.min((threadIndex + 1) * blockSize, resultRows); i++) {
-                        for (int j = 0; j < resultCols; j++) {
-                            for (int k = 0; k < m1.getCols(); k++) {
-                                product.getData()[i][j] += currentBlocksM1[i / blockSize][k / blockSize].getData()[i % blockSize][k % blockSize]
-                                        * currentBlocksM2[k / blockSize][j / blockSize].getData()[k % blockSize][j % blockSize];
-                            }
-                        }
-                    }
-                });
-
-                threads[t].start();
+        // Ініціалізуємо блоки результатів
+        for (int i = 0; i < blocksProduct.length; i++) {
+            for (int j = 0; j < blocksProduct.length; j++) {
+                blocksProduct[i][j] = new Matrix(blockSize, blockSize);
             }
+        }
 
-            for (Thread thread : threads) {
-                try {
-                    thread.join();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+
+        for (int stage = 0; stage < n / blockSize; stage++) {
+            Future<?>[] futures = new Future<?>[numThreads];
+            int taskIndex = 0;
+
+            for (int i = 0; i < n / blockSize; i++) {
+                for (int j = 0; j < n / blockSize; j++) {
+                    int k = (i + stage) % (n / blockSize);
+
+                    Matrix A = blocksM1[i][k];
+                    Matrix B = blocksM2[k][j];
+                    Matrix C = blocksProduct[i][j];
+
+                    futures[taskIndex++] = executor.submit(() -> multiplyBlock(A, B, C));
+
+                    if (taskIndex >= numThreads) {
+                        waitForTasks(futures);
+                        taskIndex = 0;
+                    }
                 }
             }
 
-            blocksM1 = swapBlocks(currentBlocksM1, currentStage, blockSize);
-            blocksM2 = swapBlocks(currentBlocksM2, currentStage, blockSize);
+            waitForTasks(futures);
         }
 
-        return product;
+        executor.shutdown();
+
+        return combineBlocks(blocksProduct, n, blockSize);
     }
 
-    // Функція для обміну блоками між матрицями
-    private static Matrix[][] swapBlocks(Matrix[][] blocks, int stage, int blockSize) {
-        int n = blocks.length;
-        Matrix[][] swapped = new Matrix[n][n];
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                swapped[i][j] = blocks[(i + stage) % n][(j + stage) % n];
+    private static void multiplyBlock(Matrix A, Matrix B, Matrix C) {
+        int size = A.getRows();
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                double sum = 0;
+                for (int k = 0; k < size; k++) {
+                    sum += A.getData()[i][k] * B.getData()[k][j];
+                }
+                C.getData()[i][j] += sum;
             }
         }
-        return swapped;
+    }
+
+    private static void waitForTasks(Future<?>[] futures) {
+        for (Future<?> future : futures) {
+            if (future != null) {
+                try {
+                    future.get();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private static Result combineBlocks(Matrix[][] blocks, int n, int blockSize) {
+        Result result = new Result(n, n);
+        double[][] resultData = result.getData();
+
+        for (int i = 0; i < n / blockSize; i++) {
+            for (int j = 0; j < n / blockSize; j++) {
+                double[][] blockData = blocks[i][j].getData();
+                for (int k = 0; k < blockSize; k++) {
+                    System.arraycopy(blockData[k], 0, resultData[i * blockSize + k], j * blockSize, blockSize);
+                }
+            }
+        }
+
+        return result;
     }
 }

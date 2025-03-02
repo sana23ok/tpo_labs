@@ -16,7 +16,7 @@ public class Producer implements Runnable {
         Random random = new Random();
         for (int i = 0; i < size; i++) {
             drop.put(i);
-//            System.out.println("Produced: " + i+1);
+            System.out.println("Produced: " + i+1);
             try {
                 Thread.sleep(random.nextInt(10));
             } catch (InterruptedException e) {

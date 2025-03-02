@@ -82,7 +82,7 @@ public class Matrix {
         return column;
     }
 
-    // Розбиття матриці на блоки заданого розміру
+    // Split matrix into blocks
     public static Matrix[][] splitIntoBlocks(Matrix matrix, int blockSize) {
         int blocksPerRow = matrix.rows / blockSize;
         Matrix[][] blocks = new Matrix[blocksPerRow][blocksPerRow];
