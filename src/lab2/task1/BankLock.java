@@ -1,6 +1,8 @@
 package lab2.task1;
+
 import java.util.concurrent.locks.ReentrantLock;
 
+// 3. Банк з ReentrantLock
 class BankLock extends Bank {
     private final ReentrantLock lock = new ReentrantLock();
 

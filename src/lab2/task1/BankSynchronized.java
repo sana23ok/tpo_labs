@@ -1,7 +1,7 @@
 package lab2.task1;
 
+// 2. Банк з synchronized
 class BankSynchronized extends Bank {
-
     public BankSynchronized(int n, int initialBalance) {
         super(n, initialBalance);
     }
