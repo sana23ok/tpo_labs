@@ -5,14 +5,16 @@ import java.util.concurrent.*;
 
 public class StripedMultiplier {
 
-    public static Matrix multiplyStriped(Matrix m1, Matrix m2, int numOfThreads) {
+    public static Result multiplyStriped(Matrix m1, Matrix m2, int numOfThreads) {
         // Перевірка, чи можна перемножити матриці
         if (m1.getCols() != m2.getRows()) {
             throw new IllegalArgumentException("Matrices cannot be multiplied - invalid dimensions");
         }
 
-        // Створюємо результуючу матрицю з необхідними розмірами
-        Matrix result = new Matrix(m1.getRows(), m2.getCols());
+        // Створюємо результуючий об'єкт класу Result з необхідними розмірами
+        int rows = m1.getRows();
+        int cols = m2.getCols();
+        Result result = new Result(rows, cols);
 
         // Транспонуємо другу матрицю, щоб полегшити доступ до її стовпців
         Matrix transMatrix2 = m2.transpose();
@@ -24,8 +26,8 @@ public class StripedMultiplier {
         ArrayList<Future<Double>> futures = new ArrayList<>();
 
         // Перебираємо всі елементи результуючої матриці
-        for (int i = 0; i < m1.getRows(); i++) {
-            for (int j = 0; j < m2.getCols(); j++) {
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
                 // Отримуємо i-й рядок з першої матриці
                 double[] row = m1.extractRow(i);
 
@@ -42,10 +44,10 @@ public class StripedMultiplier {
 
         try {
             // Записуємо отримані значення у результуючу матрицю
-            for (int i = 0; i < result.getRows(); i++) {
-                for (int j = 0; j < result.getCols(); j++) {
+            for (int i = 0; i < rows; i++) {
+                for (int j = 0; j < cols; j++) {
                     // Отримуємо результат обчислення з потоку та вставляємо у результат
-                    result.getData()[i][j] = futures.get(i * result.getCols() + j).get();
+                    result.getData()[i][j] = futures.get(i * cols + j).get();
                 }
             }
         } catch (InterruptedException | ExecutionException e) {
