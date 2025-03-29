@@ -42,30 +42,54 @@ class Matrix {
     }
 }
 
-class FoxForkJoin extends RecursiveTask<Matrix> {
-    private final Matrix A, B, C;
+class FoxForkJoin extends RecursiveTask<Matrix[][]> {
+    private final Matrix[][] blocksA, blocksB, blocksC;
     private final int blockSize;
     private final int stage;
 
-    public FoxForkJoin(Matrix A, Matrix B, Matrix C, int blockSize, int stage) {
-        this.A = A;
-        this.B = B;
-        this.C = C;
+    public FoxForkJoin(Matrix[][] blocksA, Matrix[][] blocksB, Matrix[][] blocksC, int blockSize, int stage) {
+        this.blocksA = blocksA;
+        this.blocksB = blocksB;
+        this.blocksC = blocksC;
         this.blockSize = blockSize;
         this.stage = stage;
     }
 
     @Override
-    protected Matrix compute() {
-        int n = A.getRows();
+    protected Matrix[][] compute() {
+        int numBlocks = blocksA.length;
+        List<FoxForkJoinBlock> tasks = new ArrayList<>();
+        for (int i = 0; i < numBlocks; i++) {
+            for (int j = 0; j < numBlocks; j++) {
+                int k = (i + stage) % numBlocks;
+                tasks.add(new FoxForkJoinBlock(blocksA[i][k], blocksB[k][j], blocksC[i][j], blockSize));
+            }
+        }
+        invokeAll(tasks);
+        return blocksC;
+    }
+}
+
+class FoxForkJoinBlock extends RecursiveAction {
+    private final Matrix blockA, blockB, blockC;
+    private final int blockSize;
+
+    public FoxForkJoinBlock(Matrix blockA, Matrix blockB, Matrix blockC, int blockSize) {
+        this.blockA = blockA;
+        this.blockB = blockB;
+        this.blockC = blockC;
+        this.blockSize = blockSize;
+    }
+
+    @Override
+    protected void compute() {
         for (int i = 0; i < blockSize; i++) {
             for (int j = 0; j < blockSize; j++) {
                 for (int k = 0; k < blockSize; k++) {
-                    C.getData()[i][j] += A.getData()[i][k] * B.getData()[k][j];
+                    blockC.getData()[i][j] += blockA.getData()[i][k] * blockB.getData()[k][j];
                 }
             }
         }
-        return C;
     }
 }
 
@@ -80,15 +104,8 @@ class FoxExecutorService {
                 blocksC[i][j] = new Matrix(blockSize, blockSize);
 
         ForkJoinPool pool = new ForkJoinPool(numThreads);
-        for (int stage = 0; stage < n / blockSize; stage++) {
-            List<FoxForkJoin> tasks = new ArrayList<>();
-            for (int i = 0; i < n / blockSize; i++) {
-                for (int j = 0; j < n / blockSize; j++) {
-                    int k = (i + stage) % (n / blockSize);
-                    tasks.add(new FoxForkJoin(blocksM1[i][k], blocksM2[k][j], blocksC[i][j], blockSize, stage));
-                }
-            }
-            tasks.forEach(pool::invoke);
+        for (int stage = 0; stage < n / blockSize; stage++){
+            pool.invoke(new FoxForkJoin(blocksM1, blocksM2, blocksC, blockSize, stage));
         }
         pool.shutdown();
         return combineBlocks(blocksC, n, blockSize);
@@ -111,9 +128,9 @@ class FoxExecutorService {
 
 public class Main {
     public static void main(String[] args) {
-        int[] sizes = {500, 800, 1000}; // {500, 800, 1000, 2000}
-        int[] threadCounts = {4, 16, 64}; // Number of threads for parallel multiplication
-        int blockSize = 50; // Block size for block matrix multiplication
+        int[] sizes = {500, 800, 1000, 2000};
+        int[] threadCounts = {4, 16, 64};
+        int blockSize = 50;
 
         for (int size : sizes) {
             for (int numThreads : threadCounts) {
@@ -121,6 +138,7 @@ public class Main {
                 Matrix m2 = new Matrix(size, size);
                 fillRandom(m1);
                 fillRandom(m2);
+                Matrix seq = multiplySequential(m1, m2);
 
                 // ExecutorService approach
                 ExecutorService executor = Executors.newFixedThreadPool(numThreads);
@@ -128,22 +146,32 @@ public class Main {
                 Matrix result1 = FoxExecutorService.multiplyFox(m1, m2, blockSize, numThreads);
                 long end = System.nanoTime();
                 executor.shutdown();
+                double executorTime = (end - start) / 1e6;
                 System.out.printf("Size: %d, Threads: %d, ExecutorService Time: %.2f ms\n", size, numThreads, (end - start) / 1e6);
 
-                // ForkJoin approach
-                ForkJoinPool forkJoinPool = new ForkJoinPool(numThreads);
-                start = System.nanoTime();
-                Matrix result2 = forkJoinPool.invoke(new FoxForkJoin(m1, m2, new Matrix(size, size), blockSize, 0));
-                end = System.nanoTime();
-                forkJoinPool.shutdown();
-                System.out.printf("Size: %d, Threads: %d, ForkJoin Time: %.2f ms\n", size, numThreads, (end - start) / 1e6);
-
-                Matrix seq = multiplySequential(m1, m2);
-                if(result1.isEqual(seq) && result2.isEqual(seq)) {
+                if(result1.isEqual(seq)) {
                     System.out.println("Equal");
                 }else{
                     System.out.println("Not Equal");
                 }
+
+                // ForkJoin approach
+                ForkJoinPool forkJoinPool = new ForkJoinPool(numThreads);
+                start = System.nanoTime();
+                Matrix result2 = FoxExecutorService.multiplyFox(m1, m2, blockSize, numThreads);
+                end = System.nanoTime();
+                forkJoinPool.shutdown();
+                System.out.printf("Size: %d, Threads: %d, ForkJoin Time: %.2f ms\n", size, numThreads, (end - start) / 1e6);
+                double forkJoinTime = (end - start) / 1e6;
+                if(result2.isEqual(seq)) {
+                    System.out.println("Equal");
+                }else{
+                    System.out.println("Not Equal");
+                }
+
+                // Speedup calculation
+                double speedup = ((executorTime - forkJoinTime) / executorTime) * 100;
+                System.out.printf("ForkJoin is %.2f%% faster than ExecutorService\n", speedup);
             }
         }
     }

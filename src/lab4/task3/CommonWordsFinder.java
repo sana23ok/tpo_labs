@@ -159,7 +159,19 @@ public class CommonWordsFinder {
             long endTime = System.nanoTime();
             long duration = (endTime - startTime) / 1_000_000;
 
-            System.out.println("Common words in all documents: " + commonWords);
+            System.out.println("Common words in all documents:");
+            int count = 0;
+            for (String word : commonWords) {
+                System.out.print(word);
+                System.out.print(", \t");
+                count++;
+                if (count % 10 == 0) {
+                    System.out.println(); // Новий рядок кожні 5 слів
+                }
+            }
+            if (count % 5 != 0) {
+                System.out.println(); // Додати новий рядок, якщо не завершився рядок
+            }
             System.out.println("Execution time: " + duration + " ms");
         } catch (IOException e) {
             e.printStackTrace();

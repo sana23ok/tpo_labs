@@ -77,10 +77,10 @@ class WordLengthAnalyzer {
     }
 }
 
-class KeywordSearchTask extends RecursiveTask<List<File>> {
+class KeywordSearchTask extends RecursiveTask<Map<String, Map<File, Integer>>> {
     private final Document document;
     private final File file;
-    private static final Set<String> IT_KEYWORDS = Set.of("thread", "Java", "Python");
+    private static final Set<String> IT_KEYWORDS = Set.of("thread", "main", "execution", "python");
 
     KeywordSearchTask(Document document, File file) {
         this.document = document;
@@ -88,19 +88,21 @@ class KeywordSearchTask extends RecursiveTask<List<File>> {
     }
 
     @Override
-    protected List<File> compute() {
+    protected Map<String, Map<File, Integer>> compute() {
+        Map<String, Map<File, Integer>> wordOccurrences = new HashMap<>();
         for (String line : document.getLines()) {
             for (String word : WordLengthAnalyzer.wordsIn(line)) {
                 if (IT_KEYWORDS.contains(word.toLowerCase())) {
-                    return List.of(file);
+                    wordOccurrences.putIfAbsent(word.toLowerCase(), new HashMap<>());
+                    wordOccurrences.get(word.toLowerCase()).merge(file, 1, Integer::sum);
                 }
             }
         }
-        return Collections.emptyList();
+        return wordOccurrences;
     }
 }
 
-class FolderKeywordSearchTask extends RecursiveTask<List<File>> {
+class FolderKeywordSearchTask extends RecursiveTask<Map<String, Map<File, Integer>>> {
     private final Folder folder;
     private final File directory;
 
@@ -110,9 +112,9 @@ class FolderKeywordSearchTask extends RecursiveTask<List<File>> {
     }
 
     @Override
-    protected List<File> compute() {
-        List<RecursiveTask<List<File>>> forks = new ArrayList<>();
-        List<File> result = new ArrayList<>();
+    protected Map<String, Map<File, Integer>> compute() {
+        List<RecursiveTask<Map<String, Map<File, Integer>>>> forks = new ArrayList<>();
+        Map<String, Map<File, Integer>> result = new HashMap<>();
 
         File[] files = directory.listFiles();
         if (files == null) return result;
@@ -135,18 +137,23 @@ class FolderKeywordSearchTask extends RecursiveTask<List<File>> {
             }
         }
 
-        for (RecursiveTask<List<File>> task : forks) {
-            result.addAll(task.join());
+        for (RecursiveTask<Map<String, Map<File, Integer>>> task : forks) {
+            Map<String, Map<File, Integer>> partialResult = task.join();
+            for (Map.Entry<String, Map<File, Integer>> entry : partialResult.entrySet()) {
+                result.putIfAbsent(entry.getKey(), new HashMap<>());
+                Map<File, Integer> fileMap = result.get(entry.getKey());
+                entry.getValue().forEach((file, count) -> fileMap.merge(file, count, Integer::sum));
+            }
         }
         return result;
     }
-
 }
 
-public class ITDocumentFinder {
+
+public class DocumentFinder {
     private final ForkJoinPool forkJoinPool = new ForkJoinPool();
 
-    public List<File> findITDocuments(Folder folder, File directory) {
+    public Map<String, Map<File, Integer>> findDocuments(Folder folder, File directory) {
         return forkJoinPool.invoke(new FolderKeywordSearchTask(folder, directory));
     }
 
@@ -161,19 +168,25 @@ public class ITDocumentFinder {
 
         try {
             Folder folder = Folder.fromDirectory(dir);
-            ITDocumentFinder finder = new ITDocumentFinder();
+            DocumentFinder finder = new DocumentFinder();
 
             long startTime = System.nanoTime();
-            List<File> itDocuments = finder.findITDocuments(folder, dir);
+            Map<String, Map<File, Integer>> wordOccurrences = finder.findDocuments(folder, dir);
             long endTime = System.nanoTime();
             long duration = (endTime - startTime) / 1_000_000;
 
-            System.out.println("Documents related to Information Technology: " + itDocuments);
+            System.out.println("Word occurrences:");
+            wordOccurrences.forEach((word, fileMap) -> {
+                System.out.println("Word: " + word);
+                fileMap.forEach((file, count) -> System.out.println("  File: " + file.getAbsolutePath() + ", Count: " + count));
+            });
+
             System.out.println("Execution time: " + duration + " ms");
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(1);
         }
     }
+
 }
 
