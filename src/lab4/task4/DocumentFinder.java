@@ -40,6 +40,7 @@ class Folder {
     }
 }
 
+
 class Document {
     private final List<String> lines;
 
@@ -71,16 +72,18 @@ class Document {
     }
 }
 
+
 class WordLengthAnalyzer {
     static String[] wordsIn(String line) {
         return line.trim().split("(\\s|\\p{Punct})+");
     }
 }
 
+
 class KeywordSearchTask extends RecursiveTask<Map<String, Map<File, Integer>>> {
     private final Document document;
     private final File file;
-    private static final Set<String> IT_KEYWORDS = Set.of("thread", "main", "execution", "python");
+    private static final Set<String> IT_KEYWORDS = Set.of("thread", "main", "execution", "guard","python");
 
     KeywordSearchTask(Document document, File file) {
         this.document = document;
@@ -90,8 +93,11 @@ class KeywordSearchTask extends RecursiveTask<Map<String, Map<File, Integer>>> {
     @Override
     protected Map<String, Map<File, Integer>> compute() {
         Map<String, Map<File, Integer>> wordOccurrences = new HashMap<>();
+
+        // Проходимо кожен рядок документа
         for (String line : document.getLines()) {
             for (String word : WordLengthAnalyzer.wordsIn(line)) {
+                // Якщо слово є у списку IT_KEYWORDS, додаємо його в мапу
                 if (IT_KEYWORDS.contains(word.toLowerCase())) {
                     wordOccurrences.putIfAbsent(word.toLowerCase(), new HashMap<>());
                     wordOccurrences.get(word.toLowerCase()).merge(file, 1, Integer::sum);
@@ -101,6 +107,7 @@ class KeywordSearchTask extends RecursiveTask<Map<String, Map<File, Integer>>> {
         return wordOccurrences;
     }
 }
+
 
 class FolderKeywordSearchTask extends RecursiveTask<Map<String, Map<File, Integer>>> {
     private final Folder folder;
@@ -125,7 +132,7 @@ class FolderKeywordSearchTask extends RecursiveTask<Map<String, Map<File, Intege
                     Folder subFolder = Folder.fromDirectory(file);
                     FolderKeywordSearchTask task = new FolderKeywordSearchTask(subFolder, file);
                     forks.add(task);
-                    task.fork();
+                    task.fork(); // Створюємо асинхронне виконання підзадачі
                 } catch (IOException e) {
                     System.err.println("Warning: Unable to process directory " + file.getAbsolutePath() + " - " + e.getMessage());
                 }
@@ -133,12 +140,13 @@ class FolderKeywordSearchTask extends RecursiveTask<Map<String, Map<File, Intege
                 Document doc = Document.fromFile(file);
                 KeywordSearchTask task = new KeywordSearchTask(doc, file);
                 forks.add(task);
-                task.fork();
+                task.fork(); // Запускаємо паралельну обробку файлу
             }
         }
 
+        // Очікуємо завершення всіх задач і об'єднуємо результати
         for (RecursiveTask<Map<String, Map<File, Integer>>> task : forks) {
-            Map<String, Map<File, Integer>> partialResult = task.join();
+            Map<String, Map<File, Integer>> partialResult = task.join(); // Блокує потік, поки задача не завершиться
             for (Map.Entry<String, Map<File, Integer>> entry : partialResult.entrySet()) {
                 result.putIfAbsent(entry.getKey(), new HashMap<>());
                 Map<File, Integer> fileMap = result.get(entry.getKey());

@@ -137,26 +137,30 @@ class FolderWordLengthTask extends RecursiveTask<Map<Integer, Integer>> {
         Map<Integer, Integer> combinedCounts = new HashMap<>();
         List<RecursiveTask<Map<Integer, Integer>>> forks = new LinkedList<>();
 
+        // Рекурсивно створюємо завдання для підпапок
         for (Folder subFolder : folder.getSubFolders()) {
             FolderWordLengthTask task = new FolderWordLengthTask(subFolder);
             forks.add(task);
-            task.fork();
+            task.fork(); // Запускаємо виконання в окремому потоці
         }
 
+        // Створюємо завдання для аналізу кожного документа
         for (Document document : folder.getDocuments()) {
             DocumentWordLengthTask task = new DocumentWordLengthTask(document);
             forks.add(task);
-            task.fork();
+            task.fork(); // Запускаємо виконання в окремому потоці
         }
 
+        // Об'єднуємо результати виконання всіх підзадач
         for (RecursiveTask<Map<Integer, Integer>> task : forks) {
-            Map<Integer, Integer> result = task.join();
+            Map<Integer, Integer> result = task.join(); // Очікуємо завершення підзадачі та отримуємо результат
             result.forEach((length, count) -> combinedCounts.merge(length, count, Integer::sum));
         }
 
         return combinedCounts;
     }
 }
+
 
 
 class WordLength {
@@ -214,19 +218,19 @@ class WordLength {
             double varianceParallel = WordLengthAnalyzer.calculateVariance(parallelResults, meanParallel);
             double stdDevParallel = WordLengthAnalyzer.calculateStandardDeviation(varianceParallel);
 
-            System.out.println("\nSingle Thread Word Length Frequency: " + singleThreadResults);
-            System.out.println("Single Thread Word Length Relative Frequency: " + calculateRelativeFrequency(singleThreadResults));
+//            System.out.println("\nSingle Thread Word Length Frequency: " + singleThreadResults);
+//            System.out.println("Single Thread Word Length Relative Frequency: " + calculateRelativeFrequency(singleThreadResults));
+//
+//            System.out.println("Single Thread Duration: " + durationSingle + " ms");
+//            System.out.println("Single Thread Mean: " + meanSingle);
+//            System.out.println("Single Thread Standard Deviation: " + stdDevSingle);
 
-            System.out.println("Single Thread Duration: " + durationSingle + " ms");
-            System.out.println("Single Thread Mean: " + meanSingle);
-            System.out.println("Single Thread Standard Deviation: " + stdDevSingle);
+            System.out.println("\n\nWord Length Frequency: " + parallelResults);
+            System.out.println("Word Length Relative Frequency: " + calculateRelativeFrequency(parallelResults));
 
-            System.out.println("\n\nParallel Thread Word Length Frequency: " + parallelResults);
-            System.out.println("Parallel Thread Word Length Relative Frequency: " + calculateRelativeFrequency(parallelResults));
-
-            System.out.println("\nParallel Thread Duration: " + durationParallel + " ms");
-            System.out.println("Parallel Thread Mean: " + meanParallel);
-            System.out.println("Parallel Thread Standard Deviation: " + stdDevParallel);
+            System.out.println("\nParallel Execution Duration: " + durationParallel + " ms");
+            System.out.println("Mean: " + meanParallel);
+            System.out.println("Standard Deviation: " + stdDevParallel);
 
             // Прискорення та ефективність
             double speedup = (double) durationSingle / durationParallel;
@@ -237,10 +241,10 @@ class WordLength {
             System.out.println("Efficiency (Speedup / Available Processors): " + efficiency);
 
             // Відображення гістограми для обох методів
-            System.out.println("\nDisplaying Histogram for Single Thread Analysis...");
+            //System.out.println("\nDisplaying Histogram...");
             //WordLengthHistogram.displayHistogram(singleThreadResults);
 
-            System.out.println("\nDisplaying Histogram for Parallel Thread Analysis...");
+            System.out.println("\nDisplaying Histogram...");
             WordLengthHistogram.displayHistogram(parallelResults);
 
         } catch (IOException e) {

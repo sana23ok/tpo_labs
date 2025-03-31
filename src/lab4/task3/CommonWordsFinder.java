@@ -98,6 +98,7 @@ class CommonWordsTask extends RecursiveTask<Set<String>> {
     }
 }
 
+// Завдання для обробки папки та об'єднання результатів документів і підпапок
 class FolderCommonWordsTask extends RecursiveTask<Set<String>> {
     private final Folder folder;
 
@@ -107,23 +108,26 @@ class FolderCommonWordsTask extends RecursiveTask<Set<String>> {
 
     @Override
     protected Set<String> compute() {
-        List<RecursiveTask<Set<String>>> forks = new ArrayList<>();
+        List<RecursiveTask<Set<String>>> forks = new ArrayList<>(); // Список задач для підпапок і документів
         Set<String> commonWords = null;
 
+        // Обробка підпапок
         for (Folder subFolder : folder.getSubFolders()) {
             FolderCommonWordsTask task = new FolderCommonWordsTask(subFolder);
             forks.add(task); // Додаємо задачу до списку
             task.fork(); // Запускаємо задачу у новому потоці
         }
 
+        // Обробка документів у поточній папці
         for (Document document : folder.getDocuments()) {
             CommonWordsTask task = new CommonWordsTask(document);
             forks.add(task); // Додаємо задачу до списку
             task.fork(); // Запускаємо задачу у новому потоці
         }
 
+        // Очікуємо завершення всіх задач та об'єднуємо результати
         for (RecursiveTask<Set<String>> task : forks) {
-            Set<String> words = task.join(); // Чекаємо завершення та отримуємо результат
+            Set<String> words = task.join(); // Отримуємо результат виконання
             if (commonWords == null) {
                 commonWords = new HashSet<>(words);
             } else {

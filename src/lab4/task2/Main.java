@@ -3,6 +3,7 @@ package lab4.task2;
 import java.util.concurrent.*;
 import java.util.*;
 
+
 class Matrix {
     private final double[][] data;
     private final int rows, cols;
@@ -42,6 +43,7 @@ class Matrix {
     }
 }
 
+
 class FoxForkJoin extends RecursiveTask<Matrix[][]> {
     private final Matrix[][] blocksA, blocksB, blocksC;
     private final int blockSize;
@@ -59,16 +61,25 @@ class FoxForkJoin extends RecursiveTask<Matrix[][]> {
     protected Matrix[][] compute() {
         int numBlocks = blocksA.length;
         List<FoxForkJoinBlock> tasks = new ArrayList<>();
+
+        // Розбиваємо множення матриць на окремі блоки та створюємо підзадачі
         for (int i = 0; i < numBlocks; i++) {
             for (int j = 0; j < numBlocks; j++) {
-                int k = (i + stage) % numBlocks;
+                int k = (i + stage) % numBlocks; // Визначаємо блок для множення на цьому етапі
+
+                // Створюємо задачу для обчислення добутку блоків
                 tasks.add(new FoxForkJoinBlock(blocksA[i][k], blocksB[k][j], blocksC[i][j], blockSize));
             }
         }
+
+        // Запускаємо всі підзадачі паралельно
         invokeAll(tasks);
+
+        // Повертаємо оновлену матрицю C
         return blocksC;
     }
 }
+
 
 class FoxForkJoinBlock extends RecursiveAction {
     private final Matrix blockA, blockB, blockC;
@@ -83,6 +94,7 @@ class FoxForkJoinBlock extends RecursiveAction {
 
     @Override
     protected void compute() {
+        // Виконуємо множення блоків у потоці
         for (int i = 0; i < blockSize; i++) {
             for (int j = 0; j < blockSize; j++) {
                 for (int k = 0; k < blockSize; k++) {
@@ -92,6 +104,7 @@ class FoxForkJoinBlock extends RecursiveAction {
         }
     }
 }
+
 
 class FoxExecutorService {
     public static Matrix multiplyFox(Matrix m1, Matrix m2, int blockSize, int numThreads) {
@@ -126,6 +139,7 @@ class FoxExecutorService {
     }
 }
 
+
 public class Main {
     public static void main(String[] args) {
         int[] sizes = {500, 800, 1000, 2000};
@@ -149,11 +163,11 @@ public class Main {
                 double executorTime = (end - start) / 1e6;
                 System.out.printf("Size: %d, Threads: %d, ExecutorService Time: %.2f ms\n", size, numThreads, (end - start) / 1e6);
 
-                if(result1.isEqual(seq)) {
-                    System.out.println("Equal");
-                }else{
-                    System.out.println("Not Equal");
-                }
+//                if(result1.isEqual(seq)) {
+//                    System.out.println("Equal");
+//                }else{
+//                    System.out.println("Not Equal");
+//                }
 
                 // ForkJoin approach
                 ForkJoinPool forkJoinPool = new ForkJoinPool(numThreads);
@@ -163,15 +177,16 @@ public class Main {
                 forkJoinPool.shutdown();
                 System.out.printf("Size: %d, Threads: %d, ForkJoin Time: %.2f ms\n", size, numThreads, (end - start) / 1e6);
                 double forkJoinTime = (end - start) / 1e6;
-                if(result2.isEqual(seq)) {
-                    System.out.println("Equal");
-                }else{
-                    System.out.println("Not Equal");
-                }
+//                if(result2.isEqual(seq)) {
+//                    System.out.println("Equal");
+//                }else{
+//                    System.out.println("Not Equal");
+//                }
 
                 // Speedup calculation
                 double speedup = ((executorTime - forkJoinTime) / executorTime) * 100;
                 System.out.printf("ForkJoin is %.2f%% faster than ExecutorService\n", speedup);
+                System.out.println();
             }
         }
     }
