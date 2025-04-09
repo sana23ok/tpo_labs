@@ -83,7 +83,7 @@ class WordLengthAnalyzer {
 class KeywordSearchTask extends RecursiveTask<Map<String, Map<File, Integer>>> {
     private final Document document;
     private final File file;
-    private static final Set<String> IT_KEYWORDS = Set.of("thread", "main", "execution", "guard","python");
+    private static final Set<String> IT_KEYWORDS = Set.of("thread", "main", "execution", "guard", "python");
 
     KeywordSearchTask(Document document, File file) {
         this.document = document;
