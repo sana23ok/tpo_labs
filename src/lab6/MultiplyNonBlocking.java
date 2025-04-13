@@ -35,21 +35,14 @@ public class MultiplyNonBlocking {
             double timeElapsedInSeconds = (endTimeInMillis - startTimeInMillis) / 1000.0;
 
             System.out.println("MultiplyNonBlocking execution time: " + timeElapsedInSeconds  + " s.");
-            System.out.println("Checking if result is correct....");
-            validateResults(matrixA, matrixB, matrixC);
+            //System.out.println("Checking if result is correct....");
+            //validateResults(matrixA, matrixB, matrixC);
         } else {
             executeWorkerTask();
         }
         MPI.Finalize();
     }
 
-//    private static void initializeMatrices(double[][] matrixA, double[][] matrixB) {
-//        int value = 1;
-//        for (double[] row : matrixA)
-//            Arrays.fill(row, value++);
-//        for (double[] row : matrixB)
-//            Arrays.fill(row, value++);
-//    }
 
     private static void distributeWork(int numWorkers, double[][] matrixA, double[][] matrixB) throws MPIException {
         int rowsPerWorker = MATRIX_A_ROWS / numWorkers;
@@ -129,27 +122,4 @@ public class MultiplyNonBlocking {
         MPI.COMM_WORLD.Send(taskMetadata, 0, 2, MPI.INT, MASTER_PROCESS, RESULT_TAG);
         MPI.COMM_WORLD.Send(localMatrixC, 0, rowsToProcess, MPI.OBJECT, MASTER_PROCESS, RESULT_TAG);
     }
-
-//    private static void performMatrixMultiplication(double[][] matrixA, double[][] matrixB, double[][] resultMatrix) {
-//        for (int i = 0; i < matrixA.length; i++) {
-//            for (int j = 0; j < matrixB[0].length; j++) {
-//                for (int k = 0; k < matrixB.length; k++) {
-//                    resultMatrix[i][j] += matrixA[i][k] * matrixB[k][j];
-//                }
-//            }
-//        }
-//    }
-//
-//    private static void validateResults(double[][] matrixA, double[][] matrixB, double[][] resultMatrix) {
-//        double[][] expectedMatrix = new double[matrixA.length][matrixB[0].length];
-//        performMatrixMultiplication(matrixA, matrixB, expectedMatrix);
-//
-//        for (int i = 0; i < matrixA.length; i++) {
-//            if (!Arrays.equals(resultMatrix[i], expectedMatrix[i])) {
-//                throw new RuntimeException("Matrix multiplication result is incorrect!");
-//            }
-//        }
-//
-//        System.out.println("Matrix multiplication result is correct!");
-//    }
 }
