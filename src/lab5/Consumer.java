@@ -2,9 +2,6 @@ package lab5;
 
 import java.util.Random;
 
-/**
- * Потік, що імітує споживача (канал обслуговування) в системі.
- */
 public class Consumer extends Thread {
     private final Manager queueManager;
 

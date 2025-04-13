@@ -32,33 +32,30 @@ public class QueueCallable implements Callable<Analyzer> {
      */
     @Override
     public Analyzer call() {
-        Manager dispatcher = new Manager(maxQueueLimit); // Менеджер черги
-        ExecutorService threadPool = Executors.newFixedThreadPool(numberOfHandlers); // Пул потоків
+        Manager dispatcher = new Manager(maxQueueLimit);
+        ExecutorService threadPool = Executors.newFixedThreadPool(numberOfHandlers);
 
-        // Запускаємо обробники заявок (Consumers)
         for (int i = 0; i < numberOfHandlers; i++) {
             threadPool.execute(new Consumer(dispatcher));
         }
 
         Analyzer statsCollector = new Analyzer(dispatcher);
         Producer taskGenerator = new Producer(dispatcher);
+        Monitor monitor = new Monitor(dispatcher);
 
         statsCollector.start();
+        monitor.start();
         taskGenerator.start();
 
         try {
-            // Чекаємо завершення генерації заявок
             taskGenerator.join();
-
-            // Після завершення генерації — закриваємо пул потоків (споживачі завершать роботу)
             threadPool.shutdown();
-
-            // Чекаємо завершення аналітика
             statsCollector.join();
+            monitor.join();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
 
-        return statsCollector; // Повертаємо результати аналізу
+        return statsCollector;
     }
 }

@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="ops4j.mpjp" type="repository">
+    <properties maven-id="org.ops4j:mpjp:0.1.0" />
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/mpjp-0.1.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/msgpack-core-0.8.16.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

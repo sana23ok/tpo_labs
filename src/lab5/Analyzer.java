@@ -1,10 +1,6 @@
 package lab5;
 
-/**
- * Клас Analyzer відповідає за збір статистики під час симуляції:
- * - середнє значення довжини черги;
- * - ймовірність відмови (відкинутих запитів).
- */
+
 public class Analyzer extends Thread {
     private final Manager manager;
     private int totalQueueLength = 0;

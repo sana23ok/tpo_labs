@@ -4,7 +4,7 @@ import java.util.concurrent.ExecutionException;
 
 public class Main {
     public static void main(String[] args) throws ExecutionException, InterruptedException {
-        //task1();
+        task1();
         task2();
     }
 
@@ -18,7 +18,7 @@ public class Main {
     }
 
     public static void task2() throws ExecutionException, InterruptedException {
-        System.out.println("- - - Starting parallel simulation task 2 - - -");
+        System.out.println("- - - Starting task 2 - - -");
         int numberOfSimulations = 10;
         int channels = 5;
         int queueSize = 100;
