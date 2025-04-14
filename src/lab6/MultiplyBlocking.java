@@ -8,10 +8,11 @@ import static lab6.MatrixOperations.*;
 public class MultiplyBlocking {
 
     public static void main(String[] args) throws Exception {
-        MPI.Init(args);
-        int currentProcessId = MPI.COMM_WORLD.Rank();
-        int totalProcesses = MPI.COMM_WORLD.Size();
-        int numWorkers = totalProcesses - 1;
+        MPI.Init(args); // Ініціалізація MPI
+
+        int currentProcessId = MPI.COMM_WORLD.Rank();// Отримання поточного процесу (рангу)
+        int totalProcesses = MPI.COMM_WORLD.Size();// Загальна кількість процесів
+        int numWorkers = totalProcesses - 1;// Кількість воркерів (крім майстра)
 
         double[][] matrixA = new double[MATRIX_A_ROWS][MATRIX_A_COLS];
         double[][] matrixB = new double[MATRIX_A_COLS][MATRIX_B_COLS];
@@ -19,62 +20,80 @@ public class MultiplyBlocking {
 
         long startTime = System.currentTimeMillis();
 
-        if (currentProcessId == MASTER_PROCESS) {
-            initializeMatrices(matrixA, matrixB);
-            distributeWorkToWorkers(numWorkers, matrixA, matrixB);
-            gatherResultsFromWorkers(numWorkers, matrixC);
+        if (isMaster(currentProcessId)) {
+            fill(matrixA, matrixB);
+            distributeWorkBlocking(numWorkers, matrixA, matrixB);
+            collectResultsBlocking(numWorkers, matrixC);
 
             long endTime = System.currentTimeMillis();
             double executionTimeInSeconds = (endTime - startTime) / 1000.0;
-
             System.out.println("MultiplyBlocking execution time: " + executionTimeInSeconds + " s.");
-            //System.out.println("Checking if result is correct....");
-            //validateResults(matrixA, matrixB, matrixC);
         } else {
-            performWorkerTask();
+            computeWorkerBlocking();
         }
-        MPI.Finalize();
+
+        MPI.Finalize(); // Завершення MPI
     }
 
-    private static void distributeWorkToWorkers(int numWorkers, double[][] matrixA, double[][] matrixB) {
-        int rowsPerWorker = MATRIX_A_ROWS / numWorkers;
-        int remainingRows = MATRIX_A_ROWS % numWorkers;
-        int startRowIndex = 0;
+    // Перевірка, чи процес є головним
+    private static boolean isMaster(int processId) {
+        return processId == MASTER_PROCESS;
+    }
 
-        for (int workerId = 1; workerId <= numWorkers; workerId++) {
-            int rowsForCurrentWorker = (workerId <= remainingRows) ? rowsPerWorker + 1 : rowsPerWorker;
-            MPI.COMM_WORLD.Send(new int[]{startRowIndex, rowsForCurrentWorker}, 0, 2, MPI.INT, workerId, DATA_TAG);
-            MPI.COMM_WORLD.Send(matrixA, startRowIndex, rowsForCurrentWorker, MPI.OBJECT, workerId, DATA_TAG);
-            MPI.COMM_WORLD.Send(matrixB, 0, MATRIX_A_COLS, MPI.OBJECT, workerId, DATA_TAG);
-            startRowIndex += rowsForCurrentWorker;
+    private static void distributeWorkBlocking(int numWorkers, double[][] matrixA, double[][] matrixB) {
+        int baseRows = MATRIX_A_ROWS / numWorkers;
+        int extraRows = MATRIX_A_ROWS % numWorkers;
+
+        int start = 0;
+
+        for (int worker = 1; worker <= numWorkers; worker++) {
+            int rowsToSend = (worker <= extraRows) ? baseRows + 1 : baseRows;
+
+            // meta date
+            MPI.COMM_WORLD.Send(new int[]{start, rowsToSend}, 0, 2, MPI.INT, worker, DATA_TAG);
+
+            // rows A
+            MPI.COMM_WORLD.Send(matrixA, start, rowsToSend, MPI.OBJECT, worker, DATA_TAG);
+
+            // B
+            MPI.COMM_WORLD.Send(matrixB, 0, MATRIX_A_COLS, MPI.OBJECT, worker, DATA_TAG);
+
+            start += rowsToSend;
         }
     }
 
-    private static void gatherResultsFromWorkers(int numWorkers, double[][] resultMatrix) {
-        for (int workerId = 1; workerId <= numWorkers; workerId++) {
-            int[] resultMetadata = new int[2];
-            MPI.COMM_WORLD.Recv(resultMetadata, 0, 2, MPI.INT, workerId, RESULT_TAG);
-            MPI.COMM_WORLD.Recv(resultMatrix, resultMetadata[0], resultMetadata[1], MPI.OBJECT, workerId, RESULT_TAG);
-            System.out.println("Received results from process " + workerId);
+    private static void collectResultsBlocking(int numWorkers, double[][] matrixC) {
+        for (int worker = 1; worker <= numWorkers; worker++) {
+            int[] metadata = new int[2];
+
+            MPI.COMM_WORLD.Recv(metadata, 0, 2, MPI.INT, worker, RESULT_TAG);
+            // get parts of result
+            MPI.COMM_WORLD.Recv(matrixC, metadata[0], metadata[1], MPI.OBJECT, worker, RESULT_TAG);
+
+            System.out.println("Received results from process " + worker);
         }
     }
 
-    private static void performWorkerTask() {
-        int[] taskMetadata = new int[2];
-        MPI.COMM_WORLD.Recv(taskMetadata, 0, 2, MPI.INT, MASTER_PROCESS, DATA_TAG);
-        int startRowIndex = taskMetadata[0], rowsToProcess = taskMetadata[1];
+    private static void computeWorkerBlocking() {
+        int[] metadata = new int[2];
+        MPI.COMM_WORLD.Recv(metadata, 0, 2, MPI.INT, MASTER_PROCESS, DATA_TAG);
 
-        double[][] localMatrixA = new double[rowsToProcess][MATRIX_A_COLS];
-        double[][] localMatrixB = new double[MATRIX_A_COLS][MATRIX_B_COLS];
-        double[][] localMatrixC = new double[rowsToProcess][MATRIX_B_COLS];
+        int startRow = metadata[0];
+        int rowsToCompute = metadata[1];
 
-        MPI.COMM_WORLD.Recv(localMatrixA, 0, rowsToProcess, MPI.OBJECT, MASTER_PROCESS, DATA_TAG);
-        MPI.COMM_WORLD.Recv(localMatrixB, 0, MATRIX_A_COLS, MPI.OBJECT, MASTER_PROCESS, DATA_TAG);
+        double[][] partA = new double[rowsToCompute][MATRIX_A_COLS];
+        double[][] partB = new double[MATRIX_A_COLS][MATRIX_B_COLS];
+        double[][] partC = new double[rowsToCompute][MATRIX_B_COLS];
 
-        performMatrixMultiplication(localMatrixA, localMatrixB, localMatrixC);
 
-        MPI.COMM_WORLD.Send(taskMetadata, 0, 2, MPI.INT, MASTER_PROCESS, RESULT_TAG);
-        MPI.COMM_WORLD.Send(localMatrixC, 0, rowsToProcess, MPI.OBJECT, MASTER_PROCESS, RESULT_TAG);
+        MPI.COMM_WORLD.Recv(partA, 0, rowsToCompute, MPI.OBJECT, MASTER_PROCESS, DATA_TAG);
+        MPI.COMM_WORLD.Recv(partB, 0, MATRIX_A_COLS, MPI.OBJECT, MASTER_PROCESS, DATA_TAG);
+
+        multiply(partA, partB, partC);
+
+        MPI.COMM_WORLD.Send(metadata, 0, 2, MPI.INT, MASTER_PROCESS, RESULT_TAG);
+        MPI.COMM_WORLD.Send(partC, 0, rowsToCompute, MPI.OBJECT, MASTER_PROCESS, RESULT_TAG);
     }
 }
+
 

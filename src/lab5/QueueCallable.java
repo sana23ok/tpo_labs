@@ -4,11 +4,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Клас QueueCallable виконує роль задачі, що моделює роботу багатоканальної
- * системи масового обслуговування з обмеженою чергою.
- * Використовує пул потоків для запуску декількох споживачів.
- */
 public class QueueCallable implements Callable<Analyzer> {
 
     private final int numberOfHandlers; // Кількість обслуговуючих потоків (Consumer)

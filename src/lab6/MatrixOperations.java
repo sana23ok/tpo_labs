@@ -4,30 +4,30 @@ import java.util.Arrays;
 
 public class MatrixOperations {
 
-    public static void initializeMatrices(double[][] matrixA, double[][] matrixB) {
+    public static void fill(double[][] A, double[][] B) {
         int value = 1;
-        for (double[] row : matrixA)
+        for (double[] row : A)
             Arrays.fill(row, value++);
-        for (double[] row : matrixB)
+        for (double[] row : B)
             Arrays.fill(row, value++);
     }
 
-    public static void performMatrixMultiplication(double[][] matrixA, double[][] matrixB, double[][] resultMatrix) {
-        for (int i = 0; i < matrixA.length; i++) {
-            for (int j = 0; j < matrixB[0].length; j++) {
-                for (int k = 0; k < matrixB.length; k++) {
-                    resultMatrix[i][j] += matrixA[i][k] * matrixB[k][j];
+    public static void multiply(double[][] A, double[][] B, double[][] res) {
+        for (int i = 0; i < A.length; i++) {
+            for (int j = 0; j < B[0].length; j++) {
+                for (int k = 0; k < B.length; k++) {
+                    res[i][j] += A[i][k] * B[k][j];
                 }
             }
         }
     }
 
-    public static void validateResults(double[][] matrixA, double[][] matrixB, double[][] resultMatrix) {
-        double[][] expectedMatrix = new double[matrixA.length][matrixB[0].length];
-        performMatrixMultiplication(matrixA, matrixB, expectedMatrix);
+    public static void validateResults(double[][] A, double[][] B, double[][] res) {
+        double[][] expectedMatrix = new double[A.length][B[0].length];
+        multiply(A, B, expectedMatrix);
 
-        for (int i = 0; i < matrixA.length; i++) {
-            if (!Arrays.equals(resultMatrix[i], expectedMatrix[i])) {
+        for (int i = 0; i < A.length; i++) {
+            if (!Arrays.equals(res[i], expectedMatrix[i])) {
                 throw new RuntimeException("Matrix multiplication result is incorrect!");
             }
         }

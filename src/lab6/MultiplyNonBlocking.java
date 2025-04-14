@@ -1,7 +1,6 @@
 package lab6;
 
 import mpi.*;
-import java.util.Arrays;
 
 import static lab6.Constants.*;
 import static lab6.MatrixOperations.*;
@@ -10,116 +9,107 @@ public class MultiplyNonBlocking {
 
     public static void main(String[] args) throws Exception {
         MPI.Init(args);
-        int currentProcessId = MPI.COMM_WORLD.Rank();
-        int totalProcesses = MPI.COMM_WORLD.Size();
-        int numWorkers = totalProcesses - 1;
 
-        if (numWorkers < 1) {
+        int rank = MPI.COMM_WORLD.Rank();
+        int size = MPI.COMM_WORLD.Size();
+        int workers = size - 1;
+
+        if (workers < 1) {
             System.out.println("Need at least 2 processes. Quitting...");
             MPI.Finalize();
-            System.exit(1);
+            return;
         }
 
-        double[][] matrixA = new double[MATRIX_A_ROWS][MATRIX_A_COLS];
-        double[][] matrixB = new double[MATRIX_A_COLS][MATRIX_B_COLS];
-        double[][] matrixC = new double[MATRIX_A_ROWS][MATRIX_B_COLS];
+        double[][] A = new double[MATRIX_A_ROWS][MATRIX_A_COLS];
+        double[][] B = new double[MATRIX_A_COLS][MATRIX_B_COLS];
+        double[][] C = new double[MATRIX_A_ROWS][MATRIX_B_COLS];
 
-        long startTimeInMillis = System.currentTimeMillis();
+        long start = System.currentTimeMillis();
 
-        if (currentProcessId == MASTER_PROCESS) {
-            initializeMatrices(matrixA, matrixB);
-            distributeWork(numWorkers, matrixA, matrixB);
-            collectResultsFromWorkers(numWorkers, matrixC);
+        if (rank == MASTER_PROCESS) {
+            fill(A, B);
+            distributeNonBlocking(workers, A, B);
+            receiveResultsNonBlocking(workers, C);
 
-            long endTimeInMillis = System.currentTimeMillis();
-            double timeElapsedInSeconds = (endTimeInMillis - startTimeInMillis) / 1000.0;
-
-            System.out.println("MultiplyNonBlocking execution time: " + timeElapsedInSeconds  + " s.");
-            //System.out.println("Checking if result is correct....");
-            //validateResults(matrixA, matrixB, matrixC);
+            long end = System.currentTimeMillis();
+            System.out.println("MultiplyNonBlocking execution time: " + (end - start) / 1000.0 + " s.");
         } else {
-            executeWorkerTask();
+            computeWorkerNonBlocking(); // Обчислення на стороні воркера
         }
-        MPI.Finalize();
+
+        MPI.Finalize(); // Завершення MPI
     }
 
+    // Неблокуючий розподіл даних до воркерів
+    private static void distributeNonBlocking(int workers, double[][] A, double[][] B) throws MPIException {
+        int base = MATRIX_A_ROWS / workers;
+        int extra = MATRIX_A_ROWS % workers;
+        int start = 0;
 
-    private static void distributeWork(int numWorkers, double[][] matrixA, double[][] matrixB) throws MPIException {
-        int rowsPerWorker = MATRIX_A_ROWS / numWorkers;
-        int remainingRows = MATRIX_A_ROWS % numWorkers;
-        int currentRow = 0;
+        Request[] metaReq = new Request[workers];
+        Request[] aReq = new Request[workers];
+        Request[] bReq = new Request[workers];
 
-        Request[] metadataRequests = new Request[numWorkers];
-        Request[] matrixARequests = new Request[numWorkers];
-        Request[] matrixBRequests = new Request[numWorkers];
+        for (int i = 0; i < workers; i++) {
+            int rows = (i + 1 <= extra) ? base + 1 : base;
 
-        for (int dest = 1; dest <= numWorkers; dest++) {
-            int rowsForWorker = (dest <= remainingRows) ? rowsPerWorker + 1 : rowsPerWorker;
+            metaReq[i] = MPI.COMM_WORLD.Isend(new int[]{start, rows}, 0, 2, MPI.INT, i + 1, DATA_TAG);
+            aReq[i] = MPI.COMM_WORLD.Isend(A, start, rows, MPI.OBJECT, i + 1, DATA_TAG);
+            bReq[i] = MPI.COMM_WORLD.Isend(B, 0, MATRIX_A_COLS, MPI.OBJECT, i + 1, DATA_TAG);
 
-            metadataRequests[dest - 1] = MPI.COMM_WORLD.Isend(new int[]{currentRow, rowsForWorker}, 0, 2, MPI.INT, dest, DATA_TAG);
-
-            matrixARequests[dest - 1] = MPI.COMM_WORLD.Isend(matrixA, currentRow, rowsForWorker, MPI.OBJECT, dest, DATA_TAG);
-
-            matrixBRequests[dest - 1] = MPI.COMM_WORLD.Isend(matrixB, 0, MATRIX_A_COLS, MPI.OBJECT, dest, DATA_TAG);
-
-            currentRow += rowsForWorker;
+            start += rows;
         }
 
-        Request.Waitall(metadataRequests);
-        Request.Waitall(matrixARequests);
-        Request.Waitall(matrixBRequests);
+        Request.Waitall(metaReq); // Очікуємо, поки всі мета-дані будуть надіслані
+        Request.Waitall(aReq);    // Очікуємо надсилання частин A
+        Request.Waitall(bReq);    // Очікуємо надсилання B
 
         System.out.println("All tasks distributed");
     }
 
-    private static void collectResultsFromWorkers(int numWorkers, double[][] resultMatrix) throws MPIException {
-        int[][] metadata = new int[numWorkers][2];
-        Request[] metadataRequests = new Request[numWorkers];
+    // Неблокуючий прийом результатів від воркерів
+    private static void receiveResultsNonBlocking(int workers, double[][] C) throws MPIException {
+        int[][] metadata = new int[workers][2];
+        Request[] metaReq = new Request[workers];
 
-        for (int i = 0; i < numWorkers; i++) {
-            metadataRequests[i] = MPI.COMM_WORLD.Irecv(metadata[i], 0, 2, MPI.INT, i + 1, RESULT_TAG);
+        for (int i = 0; i < workers; i++) {
+            metaReq[i] = MPI.COMM_WORLD.Irecv(metadata[i], 0, 2, MPI.INT, i + 1, RESULT_TAG);
         }
 
-        Request.Waitall(metadataRequests);
+        Request.Waitall(metaReq); // Очікуємо мета-дані
 
-        Request[] resultRequests = new Request[numWorkers];
-        for (int i = 0; i < numWorkers; i++) {
+        Request[] resultReq = new Request[workers];
+        for (int i = 0; i < workers; i++) {
             int startRow = metadata[i][0];
-            int rowsToReceive = metadata[i][1];
-            resultRequests[i] = MPI.COMM_WORLD.Irecv(resultMatrix, startRow, rowsToReceive, MPI.OBJECT, i + 1, RESULT_TAG);
+            int numRows = metadata[i][1];
+            resultReq[i] = MPI.COMM_WORLD.Irecv(C, startRow, numRows, MPI.OBJECT, i + 1, RESULT_TAG);
         }
 
-        Request.Waitall(resultRequests);
-
+        Request.Waitall(resultReq); // Очікуємо всі частини результату
         System.out.println("All results collected");
     }
 
-    private static void executeWorkerTask() throws MPIException {
-        int[] taskMetadata = new int[2];
+    // Неблокуюче обчислення на стороні воркера
+    private static void computeWorkerNonBlocking() throws MPIException {
+        int[] task = new int[2];
 
-        Request metadataRequest = MPI.COMM_WORLD.Irecv(taskMetadata, 0, 2, MPI.INT, MASTER_PROCESS, DATA_TAG);
-        metadataRequest.Wait();
+        MPI.COMM_WORLD.Irecv(task, 0, 2, MPI.INT, MASTER_PROCESS, DATA_TAG).Wait();
 
-        int startRow = taskMetadata[0];
-        int rowsToProcess = taskMetadata[1];
+        int start = task[0], rows = task[1];
 
-        double[][] localMatrixA = new double[rowsToProcess][MATRIX_A_COLS];
-        double[][] localMatrixB = new double[MATRIX_A_COLS][MATRIX_B_COLS];
-        double[][] localMatrixC = new double[rowsToProcess][MATRIX_B_COLS];
+        double[][] partA = new double[rows][MATRIX_A_COLS];
+        double[][] partB = new double[MATRIX_A_COLS][MATRIX_B_COLS];
+        double[][] partC = new double[rows][MATRIX_B_COLS];
 
-        for (double[] row : localMatrixC) {
-            Arrays.fill(row, 0.0);
-        }
+        Request aReq = MPI.COMM_WORLD.Irecv(partA, 0, rows, MPI.OBJECT, MASTER_PROCESS, DATA_TAG);
+        Request bReq = MPI.COMM_WORLD.Irecv(partB, 0, MATRIX_A_COLS, MPI.OBJECT, MASTER_PROCESS, DATA_TAG);
 
-        Request requestA = MPI.COMM_WORLD.Irecv(localMatrixA, 0, rowsToProcess, MPI.OBJECT, MASTER_PROCESS, DATA_TAG);
-        Request requestB = MPI.COMM_WORLD.Irecv(localMatrixB, 0, MATRIX_A_COLS, MPI.OBJECT, MASTER_PROCESS, DATA_TAG);
+        Request.Waitall(new Request[]{aReq, bReq});
 
-        Request[] requests = {requestA, requestB};
-        Request.Waitall(requests);
+        multiply(partA, partB, partC);
 
-        performMatrixMultiplication(localMatrixA, localMatrixB, localMatrixC);
-
-        MPI.COMM_WORLD.Send(taskMetadata, 0, 2, MPI.INT, MASTER_PROCESS, RESULT_TAG);
-        MPI.COMM_WORLD.Send(localMatrixC, 0, rowsToProcess, MPI.OBJECT, MASTER_PROCESS, RESULT_TAG);
+        MPI.COMM_WORLD.Send(task, 0, 2, MPI.INT, MASTER_PROCESS, RESULT_TAG);
+        MPI.COMM_WORLD.Send(partC, 0, rows, MPI.OBJECT, MASTER_PROCESS, RESULT_TAG);
     }
 }
+
