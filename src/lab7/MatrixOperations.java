@@ -12,7 +12,7 @@ public class MatrixOperations {
         int colsB = b[0].length;
 
         if (colsA != rowsB) {
-            throw new IllegalArgumentException("Number of rows must be equal to number of columns.");
+            throw new IllegalArgumentException("Number of columns in the first matrix must equal the number of rows in the second matrix.");
         }
 
         double[][] result = new double[rowsA][colsB];
@@ -70,5 +70,15 @@ public class MatrixOperations {
             }
         }
         return matrix;
+    }
+
+    public static double[][] getSubmatrix(double[][] matrix, int startRow, int endRow, int startCol, int endCol) {
+        int rows = endRow - startRow;
+        int cols = endCol - startCol;
+        double[][] subMatrix = new double[rows][cols];
+        for (int i = 0; i < rows; i++) {
+            System.arraycopy(matrix[startRow + i], startCol, subMatrix[i], 0, cols);
+        }
+        return subMatrix;
     }
 }
