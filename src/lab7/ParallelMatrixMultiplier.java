@@ -13,7 +13,7 @@ public class ParallelMatrixMultiplier {
         int rank = MPI.COMM_WORLD.Rank(); // Отримання рангу поточного процесу
         int size = MPI.COMM_WORLD.Size(); // Отримання загальної кількості процесів
 
-        int n = 1000; // Розмір матриць
+        int n = 500; // Розмір матриць
 
         compareCollectiveMethods(rank, size, n); // Виклик методу для порівняння колективних методів
 
@@ -47,50 +47,51 @@ public class ParallelMatrixMultiplier {
         // Bcast (один-до-багатьох для B та A)
         double timeBcast;
         long startBcast = System.nanoTime();
-        resultBcast = multiplyBcastCollective(rank, size, a, b, n); // Виклик методу множення з використанням Bcast
+        resultBcast = computeWithBcast(rank, size, a, b, n); // Виклик методу множення з використанням Bcast
         long endBcast = System.nanoTime();
         timeBcast = (endBcast - startBcast) / 1e9; // Обчислення часу виконання
 
         // Gather (багато-до-одного для результату)
         double timeGather;
         long startGather = System.nanoTime();
-        resultGather = multiplyGatherCollective(rank, size, a, b, n); // Виклик методу множення з використанням Gather
+        resultGather = computeWithGather(rank, size, a, b, n); // Виклик методу множення з використанням Gather
         long endGather = System.nanoTime();
         timeGather = (endGather - startGather) / 1e9; // Обчислення часу виконання
 
         // Alltoall (багато-до-багатьох)
         double timeAlltoall;
         long startAlltoall = System.nanoTime();
-        resultAlltoall = multiplyAlltoallCollective(rank, size, a, b, n); // Виклик методу множення з використанням Alltoall
+        resultAlltoall = computeWithAlltoAll(rank, size, a, b, n); // Виклик методу множення з використанням Alltoall
         long endAlltoall = System.nanoTime();
         timeAlltoall = (endAlltoall - startAlltoall) / 1e9; // Обчислення часу виконання
 
         // Mixed (комбінація Scatterv/Bcast + Gatherv)
         double timeMixed;
         long startMixed = System.nanoTime();
-        resultMixed = multiplyMixedCollective(rank, size, a, b, n); // Виклик змішаного методу множення
+        resultMixed = computeWithMixedMethod(rank, size, a, b, n); // Виклик змішаного методу множення
         long endMixed = System.nanoTime();
         timeMixed = (endMixed - startMixed) / 1e9; // Обчислення часу виконання
 
         // Виведення результатів на головному процесі
         if (rank == ROOT) {
-            System.out.println("\nSize: " + n + ", Processes: " + size);
-            System.out.printf("\nSequential Time:                          %.3f s%n", timeSequential);
-            System.out.printf("One to many (Bcast):                      %.3f s, Speedup: %.2f%n", timeBcast, timeSequential / timeBcast);
-            System.out.printf("Many to one (Gather):                     %.3f s, Speedup: %.2f%n", timeGather, timeSequential / timeGather);
-            System.out.printf("Many to many (Allgatherv):                %.3f s, Speedup: %.2f%n", timeAlltoall, timeSequential / timeAlltoall);
-            System.out.printf("Mixed (Scatterv, Bcast, Gatherv):         %.3f s, Speedup: %.2f%n", timeMixed, timeSequential / timeMixed);
+            System.out.println("\nMatrix Size: " + n + "x" + n + ", Processes: " + size);
 
-            System.out.println("\n\nValidation:");
-            System.out.println("Bcast correct:        " + MatrixOperations.equals(resultSequential, resultBcast));
-            System.out.println("Gather correct:       " + MatrixOperations.equals(resultSequential, resultGather));
-            System.out.println("Alltoall correct:     " + MatrixOperations.equals(resultSequential, resultAlltoall));
-            System.out.println("Mixed correct:        " + MatrixOperations.equals(resultSequential, resultMixed));
+            // Таблиця результатів з валідацією
+            System.out.println("\n+-------------------------------------------+----------------+-----------+-----------+");
+            System.out.printf("| %-41s | %-14s | %-9s | %-9s |%n", "Method", "Time (s)", "Speedup", "Correct");
+            System.out.println("+-------------------------------------------+----------------+-----------+-----------+");
+            System.out.printf("| %-41s | %-14.3f | %-9s | %-9s |%n", "Sequential", timeSequential, "---", "---");
+            System.out.printf("| %-41s | %-14.3f | %-9.2f | %-9s |%n", "One to many (Bcast)", timeBcast, timeSequential / timeBcast, MatrixOperations.equals(resultSequential, resultBcast));
+            System.out.printf("| %-41s | %-14.3f | %-9.2f | %-9s |%n", "Many to one (Gather)", timeGather, timeSequential / timeGather, MatrixOperations.equals(resultSequential, resultGather));
+            System.out.printf("| %-41s | %-14.3f | %-9.2f | %-9s |%n", "Many to many (Allgatherv)", timeAlltoall, timeSequential / timeAlltoall, MatrixOperations.equals(resultSequential, resultAlltoall));
+            System.out.printf("| %-41s | %-14.3f | %-9.2f | %-9s |%n", "Mixed (Scatterv, Bcast, Gatherv)", timeMixed, timeSequential / timeMixed, MatrixOperations.equals(resultSequential, resultMixed));
+            System.out.println("+-------------------------------------------+----------------+-----------+-----------+");
         }
+
     }
 
     // Bcast (one-to-many for B)
-    private static double[][] multiplyBcastCollective(int rank, int size, double[][] localA, double[][] b, int n) throws MPIException {
+    private static double[][] computeWithBcast(int rank, int size, double[][] localA, double[][] b, int n) throws MPIException {
         double[] flatB = new double[n * n];
         double[] flatA = new double[n * n];
         double[][] broadcastA = null;
@@ -173,7 +174,7 @@ public class ParallelMatrixMultiplier {
     }
 
     // Gather (many-to-one for result)
-    private static double[][] multiplyGatherCollective(int rank, int size, double[][] localA, double[][] b, int n) throws MPIException {
+    private static double[][] computeWithGather(int rank, int size, double[][] localA, double[][] b, int n) throws MPIException {
         double[] flatB = new double[n * n];
         double[] flatA = new double[n * n];
         double[][] broadcastA = null;
@@ -228,7 +229,7 @@ public class ParallelMatrixMultiplier {
     }
 
     // Alltoall (many-to-many)
-    private static double[][] multiplyAlltoallCollective(int rank, int size, double[][] a, double[][] b, int n) throws MPIException {
+    private static double[][] computeWithAlltoAll(int rank, int size, double[][] a, double[][] b, int n) throws MPIException {
         int rowsPerProcess = n / size;
         int extraRows = n % size;
 
@@ -280,7 +281,7 @@ public class ParallelMatrixMultiplier {
     }
 
     // Mixed (combination of Scatterv/Bcast + Gatherv)
-    private static double[][] multiplyMixedCollective(int rank, int size, double[][] localA, double[][] b, int n) throws MPIException {
+    private static double[][] computeWithMixedMethod(int rank, int size, double[][] localA, double[][] b, int n) throws MPIException {
         int rowsPerProcess = n / size;
         int extra = n % size;
         int[] sendCountsA = new int[size];
