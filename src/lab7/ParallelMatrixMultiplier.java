@@ -13,11 +13,25 @@ public class ParallelMatrixMultiplier {
         int rank = MPI.COMM_WORLD.Rank(); // Отримання рангу поточного процесу
         int size = MPI.COMM_WORLD.Size(); // Отримання загальної кількості процесів
 
-        int n = 500; // Розмір матриць
+        int n = 1000; // Розмір матриць
 
         compareCollectiveMethods(rank, size, n); // Виклик методу для порівняння колективних методів
 
         MPI.Finalize(); // Завершення MPI
+    }
+
+    private static void printHeader() {
+        System.out.println("\n+-------------------------------------------+----------------+-----------+-----------+");
+        System.out.printf("| %-41s | %-14s | %-9s | %-9s |%n", "Method", "Time (s)", "Speedup", "Correct");
+        System.out.println("+-------------------------------------------+----------------+-----------+-----------+");
+    }
+
+    private static void printResult(String methodName, double time, double speedup, boolean correct) {
+        System.out.printf("| %-41s | %-14.3f | %-9.2f | %-9s |%n", methodName, time, speedup, correct);
+    }
+
+    private static void printFooter() {
+        System.out.println("+-------------------------------------------+----------------+-----------+-----------+");
     }
 
     private static void compareCollectiveMethods(int rank, int size, int n) throws MPIException {
@@ -28,68 +42,54 @@ public class ParallelMatrixMultiplier {
         double[][] resultAlltoall = null;
         double[][] resultMixed = null;
         double[][] resultSequential = null;
-
-        if (rank == ROOT) {
-            a = MatrixOperations.createRandomMatrix(n, n); // Створення випадкової матриці A на головному процесі
-            b = MatrixOperations.createRandomMatrix(n, n); // Створення випадкової матриці B на головному процесі
-        }
-
-        // Послідовне множення
         double timeSequential = 0;
+        double timeBcast = 0;
+        double timeGather = 0;
+        double timeAlltoall = 0;
+        double timeMixed = 0;
+
         if (rank == ROOT) {
+            a = MatrixOperations.createRandomMatrix(n, n);
+            b = MatrixOperations.createRandomMatrix(n, n);
+
             long start = System.nanoTime();
-            resultSequential = MatrixOperations.multiplySequential(a, b); // Виконання послідовного множення на головному процесі
+            resultSequential = MatrixOperations.multiplySequential(a, b);
             long end = System.nanoTime();
-            timeSequential = (end - start) / 1e9; // Обчислення часу виконання
+            timeSequential = (end - start) / 1e9;
             System.out.printf("Sequential Time: %.3f s%n", timeSequential);
         }
 
-        // Bcast (один-до-багатьох для B та A)
-        double timeBcast;
         long startBcast = System.nanoTime();
-        resultBcast = computeWithBcast(rank, size, a, b, n); // Виклик методу множення з використанням Bcast
+        resultBcast = computeWithBcast(rank, size, a, b, n);
         long endBcast = System.nanoTime();
-        timeBcast = (endBcast - startBcast) / 1e9; // Обчислення часу виконання
+        timeBcast = (endBcast - startBcast) / 1e9;
 
-        // Gather (багато-до-одного для результату)
-        double timeGather;
         long startGather = System.nanoTime();
-        resultGather = computeWithGather(rank, size, a, b, n); // Виклик методу множення з використанням Gather
+        resultGather = computeWithGather(rank, size, a, b, n);
         long endGather = System.nanoTime();
-        timeGather = (endGather - startGather) / 1e9; // Обчислення часу виконання
+        timeGather = (endGather - startGather) / 1e9;
 
-        // Alltoall (багато-до-багатьох)
-        double timeAlltoall;
         long startAlltoall = System.nanoTime();
-        resultAlltoall = computeWithAlltoAll(rank, size, a, b, n); // Виклик методу множення з використанням Alltoall
+        resultAlltoall = computeWithAlltoAll(rank, size, a, b, n);
         long endAlltoall = System.nanoTime();
-        timeAlltoall = (endAlltoall - startAlltoall) / 1e9; // Обчислення часу виконання
+        timeAlltoall = (endAlltoall - startAlltoall) / 1e9;
 
-        // Mixed (комбінація Scatterv/Bcast + Gatherv)
-        double timeMixed;
         long startMixed = System.nanoTime();
-        resultMixed = computeWithMixedMethod(rank, size, a, b, n); // Виклик змішаного методу множення
+        resultMixed = computeWithMixedMethod(rank, size, a, b, n);
         long endMixed = System.nanoTime();
-        timeMixed = (endMixed - startMixed) / 1e9; // Обчислення часу виконання
+        timeMixed = (endMixed - startMixed) / 1e9;
 
-        // Виведення результатів на головному процесі
         if (rank == ROOT) {
             System.out.println("\nMatrix Size: " + n + "x" + n + ", Processes: " + size);
-
-            // Таблиця результатів з валідацією
-            System.out.println("\n+-------------------------------------------+----------------+-----------+-----------+");
-            System.out.printf("| %-41s | %-14s | %-9s | %-9s |%n", "Method", "Time (s)", "Speedup", "Correct");
-            System.out.println("+-------------------------------------------+----------------+-----------+-----------+");
-            System.out.printf("| %-41s | %-14.3f | %-9s | %-9s |%n", "Sequential", timeSequential, "---", "---");
-            System.out.printf("| %-41s | %-14.3f | %-9.2f | %-9s |%n", "One to many (Bcast)", timeBcast, timeSequential / timeBcast, MatrixOperations.equals(resultSequential, resultBcast));
-            System.out.printf("| %-41s | %-14.3f | %-9.2f | %-9s |%n", "Many to one (Gather)", timeGather, timeSequential / timeGather, MatrixOperations.equals(resultSequential, resultGather));
-            System.out.printf("| %-41s | %-14.3f | %-9.2f | %-9s |%n", "Many to many (Allgatherv)", timeAlltoall, timeSequential / timeAlltoall, MatrixOperations.equals(resultSequential, resultAlltoall));
-            System.out.printf("| %-41s | %-14.3f | %-9.2f | %-9s |%n", "Mixed (Scatterv, Bcast, Gatherv)", timeMixed, timeSequential / timeMixed, MatrixOperations.equals(resultSequential, resultMixed));
-            System.out.println("+-------------------------------------------+----------------+-----------+-----------+");
+            printHeader();
+            printResult("Sequential", timeSequential, 0, true); // Speedup for sequential is meaningless
+            printResult("One to many (Bcast)", timeBcast, timeSequential / timeBcast, MatrixOperations.equals(resultSequential, resultBcast));
+            printResult("Many to one (Gather)", timeGather, timeSequential / timeGather, MatrixOperations.equals(resultSequential, resultGather));
+            printResult("Many to many (Allgatherv)", timeAlltoall, timeSequential / timeAlltoall, MatrixOperations.equals(resultSequential, resultAlltoall));
+            printResult("Mixed (Scatterv, Bcast, Gatherv)", timeMixed, timeSequential / timeMixed, MatrixOperations.equals(resultSequential, resultMixed));
+            printFooter();
         }
-
     }
-
     // Bcast (one-to-many for B)
     private static double[][] computeWithBcast(int rank, int size, double[][] localA, double[][] b, int n) throws MPIException {
         double[] flatB = new double[n * n];
