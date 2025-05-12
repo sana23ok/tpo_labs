@@ -5,19 +5,19 @@ import mpi.*;
 //-jar C:/mpj\lib\starter.jar -np 4 -dev multicore lab7.CollectiveMpi
 
 public class ParallelMatrixMultiplier {
-    static final int ROOT = 0;
-    static final int TAG = 1;
+    static final int ROOT = 0; // Визначаємо константу для рангу головного процесу
+    static final int TAG = 1;  // Визначаємо тег для повідомлень MPI
 
     public static void main(String[] args) throws MPIException {
-        MPI.Init(args);
-        int rank = MPI.COMM_WORLD.Rank();
-        int size = MPI.COMM_WORLD.Size();
+        MPI.Init(args); // Ініціалізація MPI
+        int rank = MPI.COMM_WORLD.Rank(); // Отримання рангу поточного процесу
+        int size = MPI.COMM_WORLD.Size(); // Отримання загальної кількості процесів
 
-        int n = 1000; // Matrix size
+        int n = 1000; // Розмір матриць
 
-        compareCollectiveMethods(rank, size, n);
+        compareCollectiveMethods(rank, size, n); // Виклик методу для порівняння колективних методів
 
-        MPI.Finalize();
+        MPI.Finalize(); // Завершення MPI
     }
 
     private static void compareCollectiveMethods(int rank, int size, int n) throws MPIException {
@@ -30,49 +30,49 @@ public class ParallelMatrixMultiplier {
         double[][] resultSequential = null;
 
         if (rank == ROOT) {
-            a = MatrixOperations.createRandomMatrix(n, n);
-            b = MatrixOperations.createRandomMatrix(n, n);
+            a = MatrixOperations.createRandomMatrix(n, n); // Створення випадкової матриці A на головному процесі
+            b = MatrixOperations.createRandomMatrix(n, n); // Створення випадкової матриці B на головному процесі
         }
 
-        // Sequential
+        // Послідовне множення
         double timeSequential = 0;
         if (rank == ROOT) {
             long start = System.nanoTime();
-            resultSequential = MatrixOperations.multiplySequential(a, b);
+            resultSequential = MatrixOperations.multiplySequential(a, b); // Виконання послідовного множення на головному процесі
             long end = System.nanoTime();
-            timeSequential = (end - start) / 1e9;
+            timeSequential = (end - start) / 1e9; // Обчислення часу виконання
             System.out.printf("Sequential Time: %.3f s%n", timeSequential);
         }
 
-        // Bcast (one-to-many for B)
+        // Bcast (один-до-багатьох для B та A)
         double timeBcast;
         long startBcast = System.nanoTime();
-        resultBcast = multiplyBcastCollective(rank, size, a, b, n);
+        resultBcast = multiplyBcastCollective(rank, size, a, b, n); // Виклик методу множення з використанням Bcast
         long endBcast = System.nanoTime();
-        timeBcast = (endBcast - startBcast) / 1e9;
+        timeBcast = (endBcast - startBcast) / 1e9; // Обчислення часу виконання
 
-        // Gather (many-to-one for result)
+        // Gather (багато-до-одного для результату)
         double timeGather;
         long startGather = System.nanoTime();
-        resultGather = multiplyGatherCollective(rank, size, a, b, n);
+        resultGather = multiplyGatherCollective(rank, size, a, b, n); // Виклик методу множення з використанням Gather
         long endGather = System.nanoTime();
-        timeGather = (endGather - startGather) / 1e9;
+        timeGather = (endGather - startGather) / 1e9; // Обчислення часу виконання
 
-        // Alltoall (many-to-many)
+        // Alltoall (багато-до-багатьох)
         double timeAlltoall;
         long startAlltoall = System.nanoTime();
-        resultAlltoall = multiplyAlltoallCollective(rank, size, a, b, n);
+        resultAlltoall = multiplyAlltoallCollective(rank, size, a, b, n); // Виклик методу множення з використанням Alltoall
         long endAlltoall = System.nanoTime();
-        timeAlltoall = (endAlltoall - startAlltoall) / 1e9;
+        timeAlltoall = (endAlltoall - startAlltoall) / 1e9; // Обчислення часу виконання
 
-        // Mixed (combination of Scatter/Bcast + Gatherv)
+        // Mixed (комбінація Scatterv/Bcast + Gatherv)
         double timeMixed;
         long startMixed = System.nanoTime();
-        resultMixed = multiplyMixedCollective(rank, size, a, b, n);
+        resultMixed = multiplyMixedCollective(rank, size, a, b, n); // Виклик змішаного методу множення
         long endMixed = System.nanoTime();
-        timeMixed = (endMixed - startMixed) / 1e9;
+        timeMixed = (endMixed - startMixed) / 1e9; // Обчислення часу виконання
 
-        // Report
+        // Виведення результатів на головному процесі
         if (rank == ROOT) {
             System.out.println("\nSize: " + n + ", Processes: " + size);
             System.out.printf("\nSequential Time:                          %.3f s%n", timeSequential);
@@ -101,9 +101,11 @@ public class ParallelMatrixMultiplier {
             broadcastA = localA;
         }
 
+        // Один-до-багатьох: ROOT розсилає сплющену матрицю B всім іншим процесам.
         MPI.COMM_WORLD.Bcast(flatB, 0, flatB.length, MPI.DOUBLE, ROOT);
         double[][] broadcastB = MatrixOperations.fromFlattened(flatB, n, n);
 
+        // Один-до-багатьох: ROOT розсилає сплющену матрицю A всім іншим процесам.
         MPI.COMM_WORLD.Bcast(flatA, 0, flatA.length, MPI.DOUBLE, ROOT);
         broadcastA = (broadcastA == null) ? MatrixOperations.fromFlattened(flatA, n, n) : broadcastA;
 
@@ -126,7 +128,7 @@ public class ParallelMatrixMultiplier {
             int[] recvSizes = new int[size];
             recvSizes[ROOT] = localSizeC;
 
-            // Receive sizes from other processes manually
+            // Багато-до-одного: ROOT отримує розміри локальних результатів від інших процесів.
             for (int srcRank = 1; srcRank < size; srcRank++) {
                 int[] recvSizeBuf = new int[1];
                 MPI.COMM_WORLD.Recv(recvSizeBuf, 0, 1, MPI.INT, srcRank, TAG);
@@ -139,12 +141,12 @@ public class ParallelMatrixMultiplier {
             int[] displacements = new int[size];
             int currentDisplacement = 0;
 
-            // Store local data
+            // Зберігаємо локальні дані ROOT-процесу.
             receivedData[ROOT] = localCflat;
             displacements[ROOT] = 0;
             currentDisplacement += recvSizes[ROOT];
 
-            // Setup asynchronous receives
+            // Багато-до-одного: ROOT асинхронно отримує сплющені частини результатів від інших процесів.
             for (int srcRank = 1; srcRank < size; srcRank++) {
                 receivedData[srcRank] = new double[recvSizes[srcRank]];
                 recvRequests[srcRank - 1] = MPI.COMM_WORLD.Irecv(receivedData[srcRank], 0, recvSizes[srcRank], MPI.DOUBLE, srcRank, TAG);
@@ -152,19 +154,19 @@ public class ParallelMatrixMultiplier {
                 currentDisplacement += recvSizes[srcRank];
             }
 
-            Request.Waitall(recvRequests);
+            Request.Waitall(recvRequests); // Очікування завершення всіх операцій отримання.
 
-            // Combine all parts into one result
+            // Об'єднуємо всі отримані частини в один сплющений результат.
             for (int i = 0; i < size; i++) {
                 System.arraycopy(receivedData[i], 0, resultFlat, displacements[i], receivedData[i].length);
             }
 
             return MatrixOperations.fromFlattened(resultFlat, n, n);
         } else {
-            // First send your size
+            // Один-до-одного: робочий процес надсилає розмір свого локального результату ROOT-процесу.
             MPI.COMM_WORLD.Send(new int[]{localSizeC}, 0, 1, MPI.INT, ROOT, TAG);
 
-            // Then send your data
+            // Один-до-одного: робочий процес надсилає сплющену частину свого локального результату ROOT-процесу.
             MPI.COMM_WORLD.Send(localCflat, 0, localSizeC, MPI.DOUBLE, ROOT, TAG);
             return null;
         }
